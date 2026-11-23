@@ -23,6 +23,7 @@ import {
   FileUser,
   LoaderCircle,
   CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 
 const initialForm = {
@@ -123,6 +124,10 @@ export default function Builder() {
 
   const [educationInput, setEducationInput] = useState("");
   const [educationLoading, setEducationLoading] = useState(false);
+
+  const [experienceAiLoading, setExperienceAiLoading] = useState({});
+const [experienceResponsibilities, setExperienceResponsibilities] =
+  useState({});
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(Boolean(id));
@@ -661,6 +666,74 @@ export default function Builder() {
     }
   };
 
+
+  // Generate a professional work experience description with AI.
+  const handleGenerateExperience = async (index) => {
+    const item = formData.experience[index];
+    const responsibilities = experienceResponsibilities[index] || "";
+
+    if (!item.company?.trim() || !item.position?.trim()) {
+      setError("Please enter the company name and job title first.");
+      return;
+    }
+
+    if (!responsibilities.trim()) {
+      setError("Please enter your responsibilities or tasks first.");
+      return;
+    }
+
+    try {
+      setExperienceAiLoading((prev) => ({ ...prev, [index]: true }));
+      setError("");
+      setMessage("");
+
+      const response = await axios.post(
+        `${API_URL}/ai/generate`,
+        {
+          task: "experience",
+          content: JSON.stringify({
+            company: item.company,
+            position: item.position,
+            startDate: item.startDate,
+            endDate: item.endDate || "Present",
+            responsibilities,
+          }),
+          tone: "professional",
+          instruction:
+            "Write a concise, professional resume work experience description using only the supplied information. Improve grammar and wording. Do not invent responsibilities, technologies, achievements, outcomes, or metrics. Return only the description as plain text.",
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const generatedDescription = response.data?.result;
+
+      if (typeof generatedDescription !== "string" || !generatedDescription.trim()) {
+        throw new Error("AI did not return a valid experience description.");
+      }
+
+      handleArrayChange(
+        "experience",
+        index,
+        "description",
+        generatedDescription.trim()
+      );
+      setMessage("Experience description generated. Review it before saving.");
+    } catch (err) {
+      console.error("Experience AI error:", err);
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to generate experience description."
+      );
+    } finally {
+      setExperienceAiLoading((prev) => ({ ...prev, [index]: false }));
+    }
+  };
+
   if (fetching) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-[#090d1a]">
@@ -671,6 +744,7 @@ export default function Builder() {
       </div>
     );
   }
+
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:bg-[#090d1a] dark:text-white">
@@ -1216,7 +1290,6 @@ CGPA: 8.71`}
                       <h3 className="font-bold">
                         Experience #{index + 1}
                       </h3>
-
                       {formData.experience.length > 1 && (
                         <button
                           type="button"
@@ -1230,6 +1303,8 @@ CGPA: 8.71`}
                         </button>
                       )}
                     </div>
+
+                    
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       {[
@@ -1257,6 +1332,8 @@ CGPA: 8.71`}
                         </div>
                       ))}
 
+                      
+
                       {["startDate", "endDate"].map((field) => (
                         <div key={field}>
                           <label className="mb-2 block text-sm font-semibold">
@@ -1283,11 +1360,53 @@ CGPA: 8.71`}
 
                       <div className="sm:col-span-2">
                         <label className="mb-2 block text-sm font-semibold">
-                          Description
+                          Responsibilities / Tasks for AI
                         </label>
 
                         <textarea
                           rows="4"
+                          value={experienceResponsibilities[index] || ""}
+                          onChange={(e) =>
+                            setExperienceResponsibilities((prev) => ({
+                              ...prev,
+                              [index]: e.target.value,
+                            }))
+                          }
+                          placeholder="Enter the tasks you actually performed. For example: Developed React components, fixed UI bugs, integrated REST APIs..."
+                          className={`${inputClass} leading-7`}
+                        />
+
+                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                          Enter real responsibilities. AI will improve the wording without adding unprovided achievements or skills.
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={() => handleGenerateExperience(index)}
+                          disabled={Boolean(experienceAiLoading[index])}
+                          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {experienceAiLoading[index] ? (
+                            <>
+                              <LoaderCircle size={18} className="animate-spin" />
+                              Generating Description...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles size={18} />
+                              Generate Description with AI
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="mb-2 block text-sm font-semibold">
+                          Professional Description (Editable)
+                        </label>
+
+                        <textarea
+                          rows="5"
                           value={item.description || ""}
                           onChange={(e) =>
                             handleArrayChange(
@@ -1297,7 +1416,7 @@ CGPA: 8.71`}
                               e.target.value
                             )
                           }
-                          placeholder="Describe your responsibilities and achievements..."
+                          placeholder="Your professional experience description will appear here. You can edit it before saving."
                           className={`${inputClass} leading-7`}
                         />
                       </div>
@@ -1730,3 +1849,5 @@ CGPA: 8.71`}
     </div>
   );
 }
+
+
